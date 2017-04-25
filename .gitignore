@@ -1,0 +1,6 @@
+*.arff
+*.zip
+*.pdf
+*.txt
+*.json
+netflix_data/*

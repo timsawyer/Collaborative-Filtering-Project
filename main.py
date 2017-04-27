@@ -52,10 +52,9 @@ class RatingsList:
         return rating
     return
 
-# TODO: make sure we are getting floating point division
 def calcMeanRating(ratingsList, userId):
-  ratingsByUser = list(filter(lambda x: x.getUserId() == userId, ratingsList))
-  meanRating = reduce(lambda x,y: x + y, list(map(lambda x: x.getRating(), ratingsByUser))) / len(ratingsByUser)
+  userRatings = ratingsByUser[userId].getRatingsList()
+  meanRating = reduce(lambda x,y: x + y, list(map(lambda x: x.getRating(), userRatings))) / len(userRatings)
   return meanRating
 
 # dict that we will build out where userId maps to mean rating by that user
@@ -176,7 +175,7 @@ testingRatings = RatingsList()
 # Doing this up front so that we don't have to recalculate every time we calculate correlation between 2 users
 ratingsByUser = {}
 
-with open('netflix_data/TrainingRatings_med2.txt', 'r') as trainingDataFile:
+with open('netflix_data/TrainingRatings.txt', 'r') as trainingDataFile:
   for line in trainingDataFile:
     trainingRatings.addRating(line)
     # get user id just added
@@ -184,7 +183,7 @@ with open('netflix_data/TrainingRatings_med2.txt', 'r') as trainingDataFile:
     # make a placeholder in dictionary that we will fill in once all data has been parsed in
     ratingsByUser[userId] = -1
 
-with open('netflix_data/TestingRatings_small.txt', 'r') as trainingDataFile:
+with open('netflix_data/TestingRatings.txt', 'r') as trainingDataFile:
   for line in trainingDataFile:
     testingRatings.addRating(line)
 

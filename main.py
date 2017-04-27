@@ -137,8 +137,8 @@ def calcCorrelation(userA, userI):
 
 def calcPredictedRating(userId, movieId):
   userMeanRating = 0
-  k = 1
   sum = 0
+  sumOfWeights = 0
   if (userId in meanRatings):
     userMeanRating = meanRatings[userId]
 
@@ -149,8 +149,13 @@ def calcPredictedRating(userId, movieId):
   for rating in nSet:
     i_userId = rating.getUserId()
     correlation = calcCorrelation(userId, i_userId)
+    sumOfWeights += abs(correlation)
     sum += (correlation * (rating.getRating() - userMeanRating))
 
+  # define our normalizing constant such that it causes the absolute values of the weights to sum to unity
+  k = 0
+  if (sumOfWeights > 0):
+    k = 1 / sumOfWeights
   return (userMeanRating + (k * sum))
 
 def calcMeanAbsoluteError(results):
@@ -175,7 +180,7 @@ testingRatings = RatingsList()
 # Doing this up front so that we don't have to recalculate every time we calculate correlation between 2 users
 ratingsByUser = {}
 
-with open('netflix_data/TrainingRatings.txt', 'r') as trainingDataFile:
+with open('netflix_data/TrainingRatings_med2.txt', 'r') as trainingDataFile:
   for line in trainingDataFile:
     trainingRatings.addRating(line)
     # get user id just added
@@ -183,7 +188,7 @@ with open('netflix_data/TrainingRatings.txt', 'r') as trainingDataFile:
     # make a placeholder in dictionary that we will fill in once all data has been parsed in
     ratingsByUser[userId] = -1
 
-with open('netflix_data/TestingRatings.txt', 'r') as trainingDataFile:
+with open('netflix_data/TestingRatings_small.txt', 'r') as trainingDataFile:
   for line in trainingDataFile:
     testingRatings.addRating(line)
 

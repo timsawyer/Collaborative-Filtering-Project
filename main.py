@@ -1,3 +1,5 @@
+# This Python script was written using Python 2.7.13
+
 from __future__ import division
 import math
 import json
@@ -50,34 +52,6 @@ class RatingsList:
         return rating
     return
 
-  def getRatingsIntersectionOfUsers(self, userA, userI):
-    """ Builds out a dict of movie ids that each map to an object containing the ratings by each user
-    Args:
-      userA: Id of first user
-      userI: Id of second user
-
-    Return: 
-    {
-      [movieId]: {
-        [userId_A]: [ratingValue]
-        [userId_I]: [ratingValue]
-      }
-    }
-    """
-    userA_ratings = self.getRatingsListForUser(userA)
-    userI_ratings = self.getRatingsListForUser(userI)
-    intersectionDict= {}
-
-    for userA_rating in userA_ratings.getRatingsList():
-      movieId = userA_rating.getMovieId()
-      userI_rating = userI_ratings.getRatingForMovieId(movieId)
-      if(userI_rating):
-        intersectionDict[movieId] = {}
-        intersectionDict[movieId][userA] = userA_rating.getRating()
-        intersectionDict[movieId][userI] = userI_rating.getRating()
-
-    return intersectionDict
-
 # TODO: make sure we are getting floating point division
 def calcMeanRating(ratingsList, userId):
   ratingsByUser = list(filter(lambda x: x.getUserId() == userId, ratingsList))
@@ -95,19 +69,54 @@ def calcUserMeanRatings(ratings):
       userMeanRatings[userId] = calcMeanRating(ratingsList, userId)
   return userMeanRatings
 
+# Get intersection of two users
+def getRatingsIntersectionOfUsers(userA, userI):
+  """ Builds out a dict of movie ids that each map to an object containing the ratings by each user
+  Args:
+    userA: Id of first user
+    userI: Id of second user
+
+  Return: 
+  {
+    [movieId]: {
+      [userId_A]: [ratingValue]
+      [userId_I]: [ratingValue]
+    },
+    ...
+  }
+  """
+  intersectionDict= {}
+
+  # if either user doesn't have any ratings in training set the intersection is empty
+  if (userA in ratingsByUser and userI in ratingsByUser):
+    userA_ratings = ratingsByUser[userA]
+    userI_ratings = ratingsByUser[userI]
+
+    for userA_rating in userA_ratings.getRatingsList():
+      movieId = userA_rating.getMovieId()
+      userI_rating = userI_ratings.getRatingForMovieId(movieId)
+      if(userI_rating):
+        intersectionDict[movieId] = {}
+        intersectionDict[movieId][userA] = userA_rating.getRating()
+        intersectionDict[movieId][userI] = userI_rating.getRating()
+
+  return intersectionDict
+
 # calculate correlation betwen two users
 def calcCorrelation(userA, userI):
   userA_mean = 0 if not userA in meanRatings else meanRatings[userA]
   userI_mean = 0 if not userI in meanRatings else meanRatings[userI]
   
   # items that both userA and userI have rated
-  j_items = trainingRatings.getRatingsIntersectionOfUsers(userA, userI)
+  j_items = getRatingsIntersectionOfUsers(userA, userI)
 
   sum = 0
   a_squaredSum = 0
   i_squaredSum = 0
 
-  for key, value in j_items:
+  for key in j_items.iteritems():
+    value = j_items[key]
+
     #get rating of movie by each user
     v_aj = value[userA]
     v_ij = value[userI]
@@ -163,13 +172,25 @@ def calcRootMeanSquareError(results):
 trainingRatings = RatingsList()
 testingRatings = RatingsList()
 
+# Creating a dictionary keyed by user id that will reference the ratings for that user
+# Doing this up front so that we don't have to recalculate every time we calculate correlation between 2 users
+ratingsByUser = {}
+
 with open('netflix_data/TrainingRatings_med2.txt', 'r') as trainingDataFile:
   for line in trainingDataFile:
     trainingRatings.addRating(line)
+    # get user id just added
+    userId = trainingRatings.getRatingsList()[-1].getUserId()
+    # make a placeholder in dictionary that we will fill in once all data has been parsed in
+    ratingsByUser[userId] = -1
 
 with open('netflix_data/TestingRatings_small.txt', 'r') as trainingDataFile:
   for line in trainingDataFile:
     testingRatings.addRating(line)
+
+# build out dict of ratings by each user
+for userIdKey in ratingsByUser:
+  ratingsByUser[userIdKey] = trainingRatings.getRatingsListForUser(userIdKey)
 
 # dict that contains mean rating for each user 
 meanRatings = calcUserMeanRatings(trainingRatings)

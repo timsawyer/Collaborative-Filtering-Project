@@ -113,12 +113,12 @@ def calcCorrelation(userA, userI):
   a_squaredSum = 0
   i_squaredSum = 0
 
-  for key in j_items.iteritems():
-    value = j_items[key]
+  for item in j_items.iteritems():
+    values = item[1]
 
     #get rating of movie by each user
-    v_aj = value[userA]
-    v_ij = value[userI]
+    v_aj = values[userA]
+    v_ij = values[userI]
 
     #subtract mean
     v_aj_minus_mean = v_aj - userA_mean
@@ -180,7 +180,7 @@ testingRatings = RatingsList()
 # Doing this up front so that we don't have to recalculate every time we calculate correlation between 2 users
 ratingsByUser = {}
 
-with open('netflix_data/TrainingRatings_med2.txt', 'r') as trainingDataFile:
+with open('netflix_data/TrainingRatings.txt', 'r') as trainingDataFile:
   for line in trainingDataFile:
     trainingRatings.addRating(line)
     # get user id just added
@@ -188,7 +188,7 @@ with open('netflix_data/TrainingRatings_med2.txt', 'r') as trainingDataFile:
     # make a placeholder in dictionary that we will fill in once all data has been parsed in
     ratingsByUser[userId] = -1
 
-with open('netflix_data/TestingRatings_small.txt', 'r') as trainingDataFile:
+with open('netflix_data/TestingRatings.txt', 'r') as trainingDataFile:
   for line in trainingDataFile:
     testingRatings.addRating(line)
 
@@ -209,12 +209,56 @@ for item in testingRatings.getRatingsList():
 meanAbsoluteError = calcMeanAbsoluteError(results)
 rootMeanSquareError = calcRootMeanSquareError(results)
 
-print "Mean Absolute Error: " + str(meanAbsoluteError)
-print "Root Mean Square Error: " + str(rootMeanSquareError)
-
-# save results to file
+# save predictions results and error results to file
 outfile = open('results.txt','w')
 outfile.write(json.dumps(results))
 outfile.close()
 
-print 'Complete'
+error_outfile = open('error_results.txt','w')
+error_outfile.write('Mean Absolute Error: ' + str(meanAbsoluteError))
+error_outfile.write('\nRoot Mean Square Error: ' + str(rootMeanSquareError))
+error_outfile.write('\n')
+error_outfile.close()
+
+print 'Predictions Complete'
+
+# Extra Credit
+# Add my ratings to training set run tests against 
+
+# reset data structures
+ratingsByUser = {}
+testingRatings = RatingsList() # reset testing ratings list so that in this stage we only run the extra credit tests
+myUserId = '9999999'
+
+with open('netflix_data/TrainingRatings_extraCredit.txt', 'r') as trainingDataFile:
+  for line in trainingDataFile:
+    trainingRatings.addRating(line)
+    # get user id just added
+    userId = trainingRatings.getRatingsList()[-1].getUserId()
+    # make a placeholder in dictionary that we will fill in once all data has been parsed in
+    ratingsByUser[userId] = -1
+
+with open('netflix_data/TestingRatings_extraCredit.txt', 'r') as trainingDataFile:
+  for line in trainingDataFile:
+    testingRatings.addRating(line)
+
+# build out dict of ratings by each user
+for userIdKey in ratingsByUser:
+  ratingsByUser[userIdKey] = trainingRatings.getRatingsListForUser(userIdKey)
+
+# only need to calculate one more mean in this step
+meanRatings[myUserId] = calcMeanRating(trainingRatings.getRatingsList(), myUserId)
+
+# make predictions and store in results list
+# results[i] = {prediction: x, trueValue: y}
+results_extraCredit = []
+for item in testingRatings.getRatingsList():
+  predictedRating = calcPredictedRating(item.getUserId(), item.getMovieId())
+  results_extraCredit.append({'movieId': item.getMovieId(), 'prediction': predictedRating, 'trueValue': item.getRating()})
+
+# save predictions results and error results to file
+outfile_extraCredit = open('results_extraCredit.txt','w')
+outfile_extraCredit.write(json.dumps(results_extraCredit))
+outfile_extraCredit.close()
+
+print 'Extra Credit Predictions Complete'

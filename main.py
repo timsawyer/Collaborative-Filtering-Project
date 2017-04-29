@@ -204,6 +204,7 @@ meanRatings = calcUserMeanRatings(trainingRatings)
 results = []
 for item in testingRatings.getRatingsList():
   predictedRating = calcPredictedRating(item.getUserId(), item.getMovieId())
+  print "predicted rating: " + str(predictedRating)
   results.append({'prediction': predictedRating, 'trueValue': item.getRating()})
 
 meanAbsoluteError = calcMeanAbsoluteError(results)
@@ -220,6 +221,8 @@ error_outfile.write('\nRoot Mean Square Error: ' + str(rootMeanSquareError))
 error_outfile.write('\n')
 error_outfile.close()
 
+print 'Mean Absolute Error: ' + str(meanAbsoluteError)
+print 'Root Mean Square Error: ' + str(rootMeanSquareError)
 print 'Predictions Complete'
 
 # Extra Credit
@@ -242,9 +245,8 @@ with open('netflix_data/TestingRatings_extraCredit.txt', 'r') as trainingDataFil
   for line in trainingDataFile:
     testingRatings.addRating(line)
 
-# build out dict of ratings by each user
-for userIdKey in ratingsByUser:
-  ratingsByUser[userIdKey] = trainingRatings.getRatingsListForUser(userIdKey)
+# only need add one more ratings list for my user
+ratingsByUser[myUserId] = trainingRatings.getRatingsListForUser(myUserId)
 
 # only need to calculate one more mean in this step
 meanRatings[myUserId] = calcMeanRating(trainingRatings.getRatingsList(), myUserId)

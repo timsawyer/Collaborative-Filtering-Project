@@ -20,52 +20,26 @@ class Rating:
   def getRating(self):
     return self.rating
 
-# contains a list of Ratings and provides helper functions
-class RatingsList:
-  def __init__(self):
-    self.ratingsList = []
+# convert a line of data into a Rating object
+def convertDataLineToRating(line):
+  data = [x.strip() for x in line.split(',')]
+  return Rating(data[0], data[1], int(float(data[2])))
 
-  def getRatingsList(self):
-    return self.ratingsList
+def getRatingForMovieId(ratingsList, movieId):
+  for rating in ratingsList:
+    if movieId == rating.getMovieId():
+      return rating
+  return
 
-  def setRatingsList(self, ratingsList):
-    self.ratingsList = ratingsList
-
-  # convert a line of data into a Rating object
-  def convertDataLineToRating(self, line):
-    data = [x.strip() for x in line.split(',')]
-    return Rating(data[0], data[1], int(float(data[2])))
-
-  def addRating(self, dataLine):
-    rating = self.convertDataLineToRating(dataLine)
-    self.ratingsList.append(rating)
-    
-  def getRatingsListForUser(self, userId):
-    userRatings = list(filter(lambda x: x.getUserId() == userId, self.ratingsList))
-    ratingsList = RatingsList()
-    ratingsList.setRatingsList(userRatings)
-    return ratingsList
-
-  def getRatingForMovieId(self, movieId):
-    for rating in self.ratingsList:
-      if movieId == rating.getMovieId():
-        return rating
-    return
-
-def calcMeanRating(ratingsList, userId):
-  userRatings = ratingsByUser[userId].getRatingsList()
+def calcMeanRating(userRatings):
   meanRating = reduce(lambda x,y: x + y, list(map(lambda x: x.getRating(), userRatings))) / len(userRatings)
   return meanRating
 
 # dict that we will build out where userId maps to mean rating by that user
-def calcUserMeanRatings(ratings):
+def calcUserMeanRatings():
   userMeanRatings = {}
-  ratingsList = ratings.getRatingsList()
-  # for each unique userId found in trainingRatings, calculate mean rating
-  for rating in ratingsList:
-    userId = rating.getUserId()
-    if(userId not in userMeanRatings):
-      userMeanRatings[userId] = calcMeanRating(ratingsList, userId)
+  for userRatings in ratingsByUser.iteritems():
+    userMeanRatings[userId] = calcMeanRating(userRatings[1])
   return userMeanRatings
 
 # Get intersection of two users
@@ -91,9 +65,9 @@ def getRatingsIntersectionOfUsers(userA, userI):
     userA_ratings = ratingsByUser[userA]
     userI_ratings = ratingsByUser[userI]
 
-    for userA_rating in userA_ratings.getRatingsList():
+    for userA_rating in userA_ratings:
       movieId = userA_rating.getMovieId()
-      userI_rating = userI_ratings.getRatingForMovieId(movieId)
+      userI_rating = getRatingForMovieId(userI_ratings, movieId)
       if(userI_rating):
         intersectionDict[movieId] = {}
         intersectionDict[movieId][userA] = userA_rating.getRating()
@@ -143,7 +117,9 @@ def calcPredictedRating(userId, movieId):
     userMeanRating = meanRatings[userId]
 
   # set of all other user ratings on this movie
-  nSet = list(filter(lambda x: x.getMovieId() == movieId, trainingRatings.getRatingsList()))
+  nSet = []
+  if movieId in ratingsByMovie:
+    nSet = ratingsByMovie[movieId]
   n = len(nSet)
 
   for rating in nSet:
@@ -172,40 +148,40 @@ def calcRootMeanSquareError(results):
     sum += (i['prediction'] - i['trueValue'])**2
   return math.sqrt(sum / n)
 
-# load and read in data
-trainingRatings = RatingsList()
-testingRatings = RatingsList()
-
+# Load and read in data
 # Creating a dictionary keyed by user id that will reference the ratings for that user
 # Doing this up front so that we don't have to recalculate every time we calculate correlation between 2 users
+# Also creating a dict that contains the ratings by each movie. Doing this so we don't have to filter entire list to get nSet for each movie
 ratingsByUser = {}
+ratingsByMovie = {}
 
-with open('netflix_data/TrainingRatings.txt', 'r') as trainingDataFile:
+with open('netflix_data/TrainingRatings_medium.txt', 'r') as trainingDataFile:
   for line in trainingDataFile:
-    trainingRatings.addRating(line)
-    # get user id just added
-    userId = trainingRatings.getRatingsList()[-1].getUserId()
-    # make a placeholder in dictionary that we will fill in once all data has been parsed in
-    ratingsByUser[userId] = -1
+    # get rating just added, store in dict of ratings by user
+    rating = convertDataLineToRating(line)
+    userId = rating.getUserId()
+    movieId = rating.getMovieId()
 
-with open('netflix_data/TestingRatings.txt', 'r') as trainingDataFile:
-  for line in trainingDataFile:
-    testingRatings.addRating(line)
+    if userId not in ratingsByUser:
+      ratingsByUser[userId] = []
 
-# build out dict of ratings by each user
-for userIdKey in ratingsByUser:
-  ratingsByUser[userIdKey] = trainingRatings.getRatingsListForUser(userIdKey)
+    if movieId not in ratingsByMovie:
+      ratingsByMovie[movieId] = []
+
+    ratingsByUser[userId].append(rating)
+    ratingsByMovie[movieId].append(rating)
 
 # dict that contains mean rating for each user 
-meanRatings = calcUserMeanRatings(trainingRatings)
+meanRatings = calcUserMeanRatings()
 
 # make predictions and store in results list
 # results[i] = {prediction: x, trueValue: y}
 results = []
-for item in testingRatings.getRatingsList():
-  predictedRating = calcPredictedRating(item.getUserId(), item.getMovieId())
-  print "predicted rating: " + str(predictedRating)
-  results.append({'prediction': predictedRating, 'trueValue': item.getRating()})
+with open('netflix_data/TestingRatings_small.txt', 'r') as trainingDataFile:
+  for line in trainingDataFile:
+    rating = convertDataLineToRating(line)
+    predictedRating = calcPredictedRating(rating.getUserId(), rating.getMovieId())
+    results.append({'prediction': predictedRating, 'trueValue': rating.getRating()})
 
 meanAbsoluteError = calcMeanAbsoluteError(results)
 rootMeanSquareError = calcRootMeanSquareError(results)
@@ -228,35 +204,31 @@ print 'Predictions Complete'
 # Extra Credit
 # Add my ratings to training set run tests against 
 
-# reset data structures
-ratingsByUser = {}
-testingRatings = RatingsList() # reset testing ratings list so that in this stage we only run the extra credit tests
+# reset testing ratings list so that in this stage we only run the extra credit tests
 myUserId = '9999999'
+ratingsByUser[myUserId] = []
 
 with open('netflix_data/TrainingRatings_extraCredit.txt', 'r') as trainingDataFile:
   for line in trainingDataFile:
-    trainingRatings.addRating(line)
-    # get user id just added
-    userId = trainingRatings.getRatingsList()[-1].getUserId()
-    # make a placeholder in dictionary that we will fill in once all data has been parsed in
-    ratingsByUser[userId] = -1
+    rating = convertDataLineToRating(line)
+    movieId = rating.getMovieId()
+    ratingsByUser[myUserId].append(rating)
 
-with open('netflix_data/TestingRatings_extraCredit.txt', 'r') as trainingDataFile:
-  for line in trainingDataFile:
-    testingRatings.addRating(line)
-
-# only need add one more ratings list for my user
-ratingsByUser[myUserId] = trainingRatings.getRatingsListForUser(myUserId)
+    if movieId not in ratingsByMovie:
+      ratingsByMovie[movieId] = []
+    ratingsByMovie[movieId].append(rating)
 
 # only need to calculate one more mean in this step
-meanRatings[myUserId] = calcMeanRating(trainingRatings.getRatingsList(), myUserId)
+meanRatings[myUserId] = calcMeanRating(ratingsByUser[myUserId])
 
 # make predictions and store in results list
 # results[i] = {prediction: x, trueValue: y}
 results_extraCredit = []
-for item in testingRatings.getRatingsList():
-  predictedRating = calcPredictedRating(item.getUserId(), item.getMovieId())
-  results_extraCredit.append({'movieId': item.getMovieId(), 'prediction': predictedRating, 'trueValue': item.getRating()})
+with open('netflix_data/TestingRatings_extraCredit.txt', 'r') as trainingDataFile:
+  for line in trainingDataFile:
+    rating = convertDataLineToRating(line)
+    predictedRating = calcPredictedRating(rating.getUserId(), rating.getMovieId())
+    results_extraCredit.append({'movieId': rating.getMovieId(), 'prediction': predictedRating, 'trueValue': rating.getRating()})
 
 # save predictions results and error results to file
 outfile_extraCredit = open('results_extraCredit.txt','w')

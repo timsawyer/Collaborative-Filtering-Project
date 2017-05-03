@@ -155,7 +155,7 @@ def calcRootMeanSquareError(results):
 ratingsByUser = {}
 ratingsByMovie = {}
 
-with open('netflix_data/TrainingRatings_medium.txt', 'r') as trainingDataFile:
+with open('netflix_data/TrainingRatings.txt', 'r') as trainingDataFile:
   for line in trainingDataFile:
     # get rating just added, store in dict of ratings by user
     rating = convertDataLineToRating(line)
@@ -177,7 +177,7 @@ meanRatings = calcUserMeanRatings()
 # make predictions and store in results list
 # results[i] = {prediction: x, trueValue: y}
 results = []
-with open('netflix_data/TestingRatings_small.txt', 'r') as trainingDataFile:
+with open('netflix_data/TestingRatings.txt', 'r') as trainingDataFile:
   for line in trainingDataFile:
     rating = convertDataLineToRating(line)
     predictedRating = calcPredictedRating(rating.getUserId(), rating.getMovieId())

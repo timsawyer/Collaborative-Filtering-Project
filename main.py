@@ -4,7 +4,6 @@ from __future__ import division
 import math
 import json
 
-intersectionsCache = {}
 correlationCache = {}
 
 # data in format: MovieID,UserID,Rating
@@ -61,16 +60,6 @@ def getRatingsIntersectionOfUsers(userA, userI):
     ...
   }
   """
-  # both permuations of possible cache keys for these two users
-  cacheKey = userA + userI
-  cacheKey2 = userI + userA
-  
-  # return intersection if already in cache
-  if cacheKey in intersectionsCache:
-    return intersectionsCache[cacheKey]
-  elif cacheKey2 in intersectionsCache:
-    return intersectionsCache[cacheKey2]
-
   intersectionDict= {}
   # if either user doesn't have any ratings in training set the intersection is empty
   if (userA in ratingsByUser and userI in ratingsByUser):
@@ -85,7 +74,6 @@ def getRatingsIntersectionOfUsers(userA, userI):
         intersectionDict[movieId][userA] = userA_rating.getRating()
         intersectionDict[movieId][userI] = userI_rating.getRating()
 
-  intersectionsCache[cacheKey] = intersectionDict
   return intersectionDict
 
 # calculate correlation betwen two users
@@ -202,7 +190,7 @@ meanRatings = calcUserMeanRatings()
 # make predictions and store in results list
 # results[i] = {prediction: x, trueValue: y}
 results = []
-with open('netflix_data/TestingRatings_small.txt', 'r') as trainingDataFile:
+with open('netflix_data/TestingRatings.txt', 'r') as trainingDataFile:
   for line in trainingDataFile:
     rating = convertDataLineToRating(line)
     predictedRating = calcPredictedRating(rating.getUserId(), rating.getMovieId())
@@ -228,8 +216,6 @@ print 'Predictions Complete'
 
 # Extra Credit
 # Add my ratings to training set run tests against 
-
-# reset testing ratings list so that in this stage we only run the extra credit tests
 myUserId = '9999999'
 ratingsByUser[myUserId] = []
 

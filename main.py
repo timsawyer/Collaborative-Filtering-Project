@@ -4,6 +4,9 @@ from __future__ import division
 import math
 import json
 
+intersectionsCache = {}
+correlationCache = {}
+
 # data in format: MovieID,UserID,Rating
 class Rating:
   def __init__(self, movieId, userId, rating):
@@ -58,8 +61,17 @@ def getRatingsIntersectionOfUsers(userA, userI):
     ...
   }
   """
-  intersectionDict= {}
+  # both permuations of possible cache keys for these two users
+  cacheKey = userA + userI
+  cacheKey2 = userI + userA
+  
+  # return intersection if already in cache
+  if cacheKey in intersectionsCache:
+    return intersectionsCache[cacheKey]
+  elif cacheKey2 in intersectionsCache:
+    return intersectionsCache[cacheKey2]
 
+  intersectionDict= {}
   # if either user doesn't have any ratings in training set the intersection is empty
   if (userA in ratingsByUser and userI in ratingsByUser):
     userA_ratings = ratingsByUser[userA]
@@ -73,10 +85,21 @@ def getRatingsIntersectionOfUsers(userA, userI):
         intersectionDict[movieId][userA] = userA_rating.getRating()
         intersectionDict[movieId][userI] = userI_rating.getRating()
 
+  intersectionsCache[cacheKey] = intersectionDict
   return intersectionDict
 
 # calculate correlation betwen two users
 def calcCorrelation(userA, userI):
+  # both permuations of possible cache keys for these two users
+  cacheKey = userA + userI
+  cacheKey2 = userI + userA
+
+  # return correlation if already in cache
+  if cacheKey in correlationCache:
+    return correlationCache[cacheKey]
+  elif cacheKey2 in correlationCache:
+    return correlationCache[cacheKey2]
+
   userA_mean = 0 if not userA in meanRatings else meanRatings[userA]
   userI_mean = 0 if not userI in meanRatings else meanRatings[userI]
   
@@ -104,10 +127,12 @@ def calcCorrelation(userA, userI):
     i_squaredSum += v_ij_minus_mean**2
 
   sqrt_denominator = math.sqrt(a_squaredSum * i_squaredSum)
-  if (sqrt_denominator == 0):
-    return 0
-  else:
-    return sum / sqrt_denominator
+  correlation = 0
+  if (sqrt_denominator != 0):
+    correlation = sum / sqrt_denominator
+  
+  correlationCache[cacheKey] = correlation
+  return correlation
 
 def calcPredictedRating(userId, movieId):
   userMeanRating = 0
@@ -177,7 +202,7 @@ meanRatings = calcUserMeanRatings()
 # make predictions and store in results list
 # results[i] = {prediction: x, trueValue: y}
 results = []
-with open('netflix_data/TestingRatings.txt', 'r') as trainingDataFile:
+with open('netflix_data/TestingRatings_small.txt', 'r') as trainingDataFile:
   for line in trainingDataFile:
     rating = convertDataLineToRating(line)
     predictedRating = calcPredictedRating(rating.getUserId(), rating.getMovieId())

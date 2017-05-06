@@ -6,7 +6,9 @@ import json
 
 correlationCache = {}
 
-# data in format: MovieID,UserID,Rating
+"""
+Class to store and provide access to data for a rating
+"""
 class Rating:
   def __init__(self, movieId, userId, rating):
     self.movieId = movieId
@@ -22,31 +24,35 @@ class Rating:
   def getRating(self):
     return self.rating
 
-# convert a line of data into a Rating object
+"""
+Convert a line of data into a Rating object
+"""
 def convertDataLineToRating(line):
   data = [x.strip() for x in line.split(',')]
   return Rating(data[0], data[1], int(float(data[2])))
 
-def getRatingForMovieId(ratingsList, movieId):
-  for rating in ratingsList:
-    if movieId == rating.getMovieId():
-      return rating
-  return
-
+"""
+Calculate mean rating given a list of ratings
+"""
 def calcMeanRating(userRatings):
-  meanRating = reduce(lambda x,y: x + y, list(map(lambda x: x.getRating(), userRatings))) / len(userRatings)
-  return meanRating
+  sum = 0
+  n = len(userRatings.keys())
+  for item in userRatings.iteritems():
+    sum += item[1]
+  return (sum / n)
 
-# dict that we will build out where userId maps to mean rating by that user
+"""
+Dict that we will build out where userId maps to mean rating by that user
+"""
 def calcUserMeanRatings():
   userMeanRatings = {}
   for userRatings in ratingsByUser.iteritems():
     userMeanRatings[userId] = calcMeanRating(userRatings[1])
   return userMeanRatings
 
-# Get intersection of two users
-def getRatingsIntersectionOfUsers(userA, userI):
-  """ Builds out a dict of movie ids that each map to an object containing the ratings by each user
+""" 
+  Calculate intersections of two users
+  Builds out a dict of movie ids that each map to an object containing the ratings by each user
   Args:
     userA: Id of first user
     userI: Id of second user
@@ -60,27 +66,31 @@ def getRatingsIntersectionOfUsers(userA, userI):
     ...
   }
   """
+def getRatingsIntersectionOfUsers(userA, userI):
   intersectionDict= {}
   # if either user doesn't have any ratings in training set the intersection is empty
   if (userA in ratingsByUser and userI in ratingsByUser):
     userA_ratings = ratingsByUser[userA]
     userI_ratings = ratingsByUser[userI]
 
-    for userA_rating in userA_ratings:
-      movieId = userA_rating.getMovieId()
-      userI_rating = getRatingForMovieId(userI_ratings, movieId)
-      if(userI_rating):
-        intersectionDict[movieId] = {}
-        intersectionDict[movieId][userA] = userA_rating.getRating()
-        intersectionDict[movieId][userI] = userI_rating.getRating()
+    keys_a = set(userA_ratings.keys())
+    keys_i = set(userI_ratings.keys())
+    intersection = keys_a & keys_i
+
+    for key in intersection:
+      intersectionDict[key] = {}
+      intersectionDict[key][userA] = userA_ratings[key]
+      intersectionDict[key][userI] = userI_ratings[key]
 
   return intersectionDict
 
-# calculate correlation betwen two users
+"""
+Calculate correclation between two users
+"""
 def calcCorrelation(userA, userI):
   # both permuations of possible cache keys for these two users
-  cacheKey = userA + userI
-  cacheKey2 = userI + userA
+  cacheKey = userA +  '-' + userI
+  cacheKey2 = userI + '-' + userA
 
   # return correlation if already in cache
   if cacheKey in correlationCache:
@@ -122,6 +132,9 @@ def calcCorrelation(userA, userI):
   correlationCache[cacheKey] = correlation
   return correlation
 
+"""
+Make prediction given a userId and a movieId
+"""
 def calcPredictedRating(userId, movieId):
   userMeanRating = 0
   sum = 0
@@ -130,16 +143,15 @@ def calcPredictedRating(userId, movieId):
     userMeanRating = meanRatings[userId]
 
   # set of all other user ratings on this movie
-  nSet = []
+  nSet = {}
   if movieId in ratingsByMovie:
     nSet = ratingsByMovie[movieId]
-  n = len(nSet)
 
-  for rating in nSet:
-    i_userId = rating.getUserId()
+  for item in nSet.iteritems():
+    i_userId = item[0]
     correlation = calcCorrelation(userId, i_userId)
     sumOfWeights += abs(correlation)
-    sum += (correlation * (rating.getRating() - userMeanRating))
+    sum += (correlation * (item[1] - userMeanRating))
 
   # define our normalizing constant such that it causes the absolute values of the weights to sum to unity
   k = 0
@@ -147,6 +159,9 @@ def calcPredictedRating(userId, movieId):
     k = 1 / sumOfWeights
   return (userMeanRating + (k * sum))
 
+"""
+Calculate mean absolute error
+"""
 def calcMeanAbsoluteError(results):
   n = len(results)
   sum = 0
@@ -154,6 +169,9 @@ def calcMeanAbsoluteError(results):
     sum += abs(i['prediction'] - i['trueValue'])
   return sum / n
 
+"""
+Calculate root mean squared error
+"""
 def calcRootMeanSquareError(results):
   n = len(results)
   sum = 0
@@ -174,15 +192,18 @@ with open('netflix_data/TrainingRatings.txt', 'r') as trainingDataFile:
     rating = convertDataLineToRating(line)
     userId = rating.getUserId()
     movieId = rating.getMovieId()
+    ratingValue = rating.getRating()
 
+    # each entry is a dict of movieId: rating
     if userId not in ratingsByUser:
-      ratingsByUser[userId] = []
+      ratingsByUser[userId] = {}
 
+    # each entry is a dict of userId: rating
     if movieId not in ratingsByMovie:
-      ratingsByMovie[movieId] = []
+      ratingsByMovie[movieId] = {}
 
-    ratingsByUser[userId].append(rating)
-    ratingsByMovie[movieId].append(rating)
+    ratingsByUser[userId][movieId] = ratingValue
+    ratingsByMovie[movieId][userId] = ratingValue
 
 # dict that contains mean rating for each user 
 meanRatings = calcUserMeanRatings()
@@ -190,17 +211,21 @@ meanRatings = calcUserMeanRatings()
 # make predictions and store in results list
 # results[i] = {prediction: x, trueValue: y}
 results = []
-with open('netflix_data/TestingRatings.txt', 'r') as trainingDataFile:
-  for line in trainingDataFile:
+progressCounter = 0
+with open('netflix_data/TestingRatings.txt', 'r') as testingDataFile:
+  for line in testingDataFile:
     rating = convertDataLineToRating(line)
     predictedRating = calcPredictedRating(rating.getUserId(), rating.getMovieId())
     results.append({'prediction': predictedRating, 'trueValue': rating.getRating()})
+    progressCounter += 1
+    if progressCounter % 100 == 0:
+      print "Predictions made: " + str(progressCounter)
 
 meanAbsoluteError = calcMeanAbsoluteError(results)
 rootMeanSquareError = calcRootMeanSquareError(results)
 
 # save predictions results and error results to file
-outfile = open('results.txt','w')
+outfile = open('results.json','w')
 outfile.write(json.dumps(results))
 outfile.close()
 
@@ -217,17 +242,18 @@ print 'Predictions Complete'
 # Extra Credit
 # Add my ratings to training set run tests against 
 myUserId = '9999999'
-ratingsByUser[myUserId] = []
+ratingsByUser[myUserId] = {}
 
 with open('netflix_data/TrainingRatings_extraCredit.txt', 'r') as trainingDataFile:
   for line in trainingDataFile:
     rating = convertDataLineToRating(line)
+    ratingValue = rating.getRating()
     movieId = rating.getMovieId()
-    ratingsByUser[myUserId].append(rating)
+    ratingsByUser[myUserId][movieId] = ratingValue
 
     if movieId not in ratingsByMovie:
-      ratingsByMovie[movieId] = []
-    ratingsByMovie[movieId].append(rating)
+      ratingsByMovie[movieId] = {}
+    ratingsByMovie[movieId][myUserId] = ratingValue
 
 # only need to calculate one more mean in this step
 meanRatings[myUserId] = calcMeanRating(ratingsByUser[myUserId])
@@ -242,7 +268,7 @@ with open('netflix_data/TestingRatings_extraCredit.txt', 'r') as trainingDataFil
     results_extraCredit.append({'movieId': rating.getMovieId(), 'prediction': predictedRating, 'trueValue': rating.getRating()})
 
 # save predictions results and error results to file
-outfile_extraCredit = open('results_extraCredit.txt','w')
+outfile_extraCredit = open('results_extraCredit.json','w')
 outfile_extraCredit.write(json.dumps(results_extraCredit))
 outfile_extraCredit.close()
 
